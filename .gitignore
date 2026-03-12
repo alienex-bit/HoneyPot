@@ -1,0 +1,38 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.iml
+
+# Flutter / Dart
+src/.dart_tool/
+src/.flutter-plugins
+src/.flutter-plugins-dependencies
+src/.packages
+src/.pub-cache/
+src/.pub/
+src/build/
+src/coverage/
+
+# Android specific
+src/android/app/debug
+src/android/app/profile
+src/android/app/release
+src/android/local.properties
+src/android/key.properties
+src/android/app/signing-key.jks
+src/android/app/signing-key.p12
+src/android/app/*.keystore
+src/android/app/*.jks
+
+# Logs and Temps
+*.log
+*.tmp
+.history
