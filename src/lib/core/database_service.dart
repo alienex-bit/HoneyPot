@@ -99,12 +99,12 @@ class DatabaseService {
     await db.delete('notifications', where: 'id = ?', whereArgs: [id]);
   }
 
-  Future<void> deleteGroup(String packageName, String title, String content) async {
+  Future<void> deleteGroup(String packageName, String title) async {
     Database db = await database;
     await db.delete(
       'notifications',
-      where: 'package_name = ? AND title = ? AND content = ?',
-      whereArgs: [packageName, title, content],
+      where: 'package_name = ? AND TRIM(COALESCE(title, \'\')) = TRIM(COALESCE(?, \'\'))',
+      whereArgs: [packageName, title],
     );
   }
 

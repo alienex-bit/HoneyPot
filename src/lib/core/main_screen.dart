@@ -484,7 +484,9 @@ class _HistoryPlaceholderState extends State<HistoryPlaceholder> {
     final count = item['count'] as int;
     final priority = item['priority'] as int? ?? 2;
     final grade = _getGradeInfo(priority);
-    
+    final gradeColor = grade['color'] as Color;
+    final packageName = item['package_name'] as String? ?? '';
+
     return Dismissible(
       key: Key('notif_group_${item['package_name']}_${item['title']}_${item['content']}'),
       direction: DismissDirection.endToStart,
@@ -501,7 +503,6 @@ class _HistoryPlaceholderState extends State<HistoryPlaceholder> {
         await DatabaseService().deleteGroup(
           item['package_name'] ?? '',
           item['title'] ?? '',
-          item['content'] ?? '',
         );
         await NotificationService.refreshStats();
         ScaffoldMessenger.of(context).showSnackBar(
@@ -515,129 +516,152 @@ class _HistoryPlaceholderState extends State<HistoryPlaceholder> {
         );
       },
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         child: BackdropFilter(
           filter: ui.ImageFilter.blur(sigmaX: HoneyTheme.glassBlur, sigmaY: HoneyTheme.glassBlur),
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            decoration: BoxDecoration(
-              color: HoneyTheme.glassBackground,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: (grade['color'] as Color).withOpacity(0.3),
-                width: priority == 3 ? 1.5 : 1,
+          child: GestureDetector(
+            onTap: () => _showDetails(item),
+            onLongPress: () {
+              _setFilter(packageName, item['app_name']);
+              HapticFeedback.heavyImpact();
+            },
+            child: Container(
+              height: 72,
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: HoneyTheme.glassBackground,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: gradeColor.withOpacity(0.3),
+                  width: priority == 3 ? 1.5 : 1,
+                ),
               ),
-            ),
-            child: ListTile(
-              contentPadding: const EdgeInsets.all(16),
-              leading: Stack(
+              child: Row(
                 children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: (grade['color'] as Color).withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: item['icon_byte_array'] != null
-                        ? Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Image.memory(item['icon_byte_array'], fit: BoxFit.contain),
-                          )
-                        : Icon(Icons.notifications_rounded, color: grade['color'] as Color),
-                  ),
-                  if (item['count'] > 1)
-                    Positioned(
-                      right: 0,
-                      bottom: 0,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: HoneyTheme.amberPrimary,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          '${item['count']}',
-                          style: const TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              title: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      item['app_name'] ?? item['package_name']?.split('.').last ?? 'Unknown App',
-                      style: GoogleFonts.outfit(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: grade['color'] as Color,
-                      ),
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: (grade['color'] as Color).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
+                  // Tappable app icon → launches app
+                  GestureDetector(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      NotificationService.launchApp(packageName);
+                    },
+                    child: Stack(
+                      clipBehavior: Clip.none,
                       children: [
-                        Icon(grade['icon'] as IconData, size: 10, color: grade['color'] as Color),
-                        const SizedBox(width: 4),
-                        Text(
-                          grade['name'] as String,
-                          style: GoogleFonts.outfit(
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                            color: grade['color'] as Color,
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: gradeColor.withOpacity(0.1),
+                            shape: BoxShape.circle,
                           ),
+                          child: item['icon_byte_array'] != null
+                              ? Padding(
+                                  padding: const EdgeInsets.all(8.0),
+                                  child: Image.memory(item['icon_byte_array'], fit: BoxFit.contain),
+                                )
+                              : Icon(Icons.notifications_rounded, size: 20, color: gradeColor),
+                        ),
+                        if (count > 1)
+                          Positioned(
+                            right: -4,
+                            bottom: -4,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: HoneyTheme.amberPrimary,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: HoneyTheme.honeyBlack, width: 1),
+                              ),
+                              child: Text(
+                                '$count',
+                                style: const TextStyle(color: Colors.black, fontSize: 9, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Text content — fixed single lines, no wrapping
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // App name + grade badge on one row
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                item['app_name'] ?? packageName.split('.').last,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.outfit(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: gradeColor,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: gradeColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(grade['icon'] as IconData, size: 9, color: gradeColor),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    grade['name'] as String,
+                                    style: GoogleFonts.outfit(fontSize: 8, fontWeight: FontWeight.bold, color: gradeColor),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        // Notification title
+                        Text(
+                          item['title'] ?? 'No Title',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 12, color: Colors.white),
+                        ),
+                        const SizedBox(height: 1),
+                        // Content preview
+                        Text(
+                          item['content'] ?? '',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.outfit(fontSize: 11, color: Colors.grey[500]),
                         ),
                       ],
                     ),
                   ),
-                ],
-              ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 4),
-                  Text(
-                    item['title'] ?? 'No Title',
-                    style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 14, color: Colors.white),
-                  ),
-                  Text(
-                    item['content'] ?? 'No Content',
-                    style: GoogleFonts.outfit(color: Colors.grey[400], fontSize: 13),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
+                  const SizedBox(width: 8),
+                  // Timestamp — right-aligned, fixed width
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      const Spacer(),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            timeStr,
-                            style: TextStyle(color: Colors.grey[400], fontSize: 13, fontWeight: FontWeight.bold),
-                          ),
-                          Text(
-                            dateStr,
-                            style: TextStyle(color: Colors.grey[600], fontSize: 10),
-                          ),
-                        ],
+                      Text(
+                        timeStr,
+                        style: GoogleFonts.outfit(fontSize: 11, color: Colors.grey[400], fontWeight: FontWeight.w600),
+                      ),
+                      Text(
+                        dateStr,
+                        style: GoogleFonts.outfit(fontSize: 10, color: Colors.grey[600]),
                       ),
                     ],
                   ),
                 ],
               ),
-              onTap: () => _showDetails(item),
-              onLongPress: () {
-                _setFilter(item['package_name'], item['app_name']);
-                HapticFeedback.heavyImpact();
-              },
             ),
           ),
         ),

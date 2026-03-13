@@ -39,17 +39,46 @@ class HoneyDatabaseHelper(context: Context) : SQLiteOpenHelper(context, "honeypo
 
     fun saveNotification(packageName: String, appName: String, title: String, content: String, timestamp: Long, iconBytes: ByteArray?, priority: Int) {
         val db = writableDatabase
-        val values = ContentValues().apply {
-            put("package_name", packageName)
-            put("app_name", appName)
-            put("title", title)
-            put("content", content)
-            put("timestamp", timestamp)
-            put("icon_byte_array", iconBytes)
-            put("priority", priority)
+
+        // Look for an existing row with the same package + title posted within the last 60 seconds.
+        // If found, this is a dynamically-updating notification — update it in place.
+        val windowMs = 60_000L
+        val cursor = db.rawQuery(
+            """SELECT id FROM notifications
+               WHERE package_name = ?
+                 AND TRIM(COALESCE(title, '')) = TRIM(COALESCE(?, ''))
+                 AND timestamp >= ?
+               ORDER BY timestamp DESC
+               LIMIT 1""",
+            arrayOf(packageName, title, (timestamp - windowMs).toString())
+        )
+
+        val existingId = if (cursor.moveToFirst()) cursor.getLong(0) else -1L
+        cursor.close()
+
+        if (existingId >= 0) {
+            // Update existing row with latest content, timestamp, and priority
+            val values = ContentValues().apply {
+                put("content", content)
+                put("timestamp", timestamp)
+                put("priority", priority)
+                if (iconBytes != null) put("icon_byte_array", iconBytes)
+            }
+            db.update("notifications", values, "id = ?", arrayOf(existingId.toString()))
+        } else {
+            // New distinct notification — insert normally
+            val values = ContentValues().apply {
+                put("package_name", packageName)
+                put("app_name", appName)
+                put("title", title)
+                put("content", content)
+                put("timestamp", timestamp)
+                put("icon_byte_array", iconBytes)
+                put("priority", priority)
+            }
+            db.insert("notifications", null, values)
         }
-        db.insert("notifications", null, values)
-        db.close()
+        // Note: do not call db.close() — SQLiteOpenHelper manages the connection lifecycle
     }
 
     fun getTodayCount(): Int {
