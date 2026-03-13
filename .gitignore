@@ -1,38 +1,69 @@
-# Environment
-.env
-.env.*
-!.env.example
-
-# OS / IDE
-.DS_Store
-Thumbs.db
-desktop.ini
-.idea/
-.vscode/
-*.iml
-
-# Flutter / Dart
-src/.dart_tool/
-src/.flutter-plugins
-src/.flutter-plugins-dependencies
-src/.packages
-src/.pub-cache/
-src/.pub/
-src/build/
-src/coverage/
-
-# Android specific
-src/android/app/debug
-src/android/app/profile
-src/android/app/release
-src/android/local.properties
-src/android/key.properties
-src/android/app/signing-key.jks
-src/android/app/signing-key.p12
-src/android/app/*.keystore
-src/android/app/*.jks
-
-# Logs and Temps
+# Miscellaneous
+*.class
 *.log
-*.tmp
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.buildlog/
 .history
+.svn/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# The .vscode/ directory contains settings for Visual Studio Code.
+# It's usually a good idea to check this in, but some developers
+# prefer to keep it local.
+.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+**/ios/Flutter/App.framework
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/app.flx
+**/ios/Flutter/app.zip
+**/ios/Flutter/flutter_assets.zip
+**/ios/Flutter/flutter_export_environment.sh
+**/ios/ServiceDefinitions.json
+**/ios/Runner/GeneratedPluginRegistrant.*
+**/android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+**/android/local.properties
+**/android/key.properties
+**/android/app/google-services.json
+**/linux/flutter/generated_plugins.cmake
+**/macos/Flutter/ephemeral/
+**/macos/Flutter/GeneratedAppleSettings.swift
+**/macos/Flutter/GeneratedPluginRegistrant.swift
+**/macos/Runner/GeneratedPluginRegistrant.*
+**/windows/flutter/generated_plugin_registrant.cc
+**/windows/flutter/generated_plugin_registrant.h
+**/windows/flutter/generated_plugins.cmake
+**/windows/flutter/generated_plugins.props
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.packages
+**/.pub-cache/
+**/.pub/
+**/.dart_tool/
+**/build/
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will create this file for each of its modules
+.idea/modules.xml
+
+# Geryon output
+.geryon/
+
+# End of file
