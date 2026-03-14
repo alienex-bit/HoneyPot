@@ -12,10 +12,8 @@ import 'package:honeypot/core/app_info_service.dart';
 import 'package:external_app_launcher/external_app_launcher.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:honeypot/core/security_service.dart';
-import 'package:honeypot/core/billing_service.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -212,8 +210,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             ),
           );
         },
-      ),
-    );
+      );
   }
 
   void _showUpgradeDialog() {
@@ -1472,7 +1469,7 @@ class _StatsScreenState extends State<StatsScreen> {
                     Text('${app['count']}', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: HoneyTheme.amberPrimary)),
                   ],
                 ),
-              )).toList(),
+              )),
           ],
         ),
         actions: [
@@ -2136,8 +2133,11 @@ class ClockRadarPainter extends CustomPainter {
       final angle = (i * 15 - 90) * (pi / 180);
       final r = (hourlyData[i] / maxVal) * radius;
       final point = center + Offset(cos(angle) * r, sin(angle) * r);
-      if (i == 0) path.moveTo(point.dx, point.dy);
-      else path.lineTo(point.dx, point.dy);
+      if (i == 0) {
+        path.moveTo(point.dx, point.dy);
+      } else {
+        path.lineTo(point.dx, point.dy);
+      }
     }
     path.close();
 
@@ -2194,9 +2194,11 @@ class SmoothWavePainter extends CustomPainter {
 
     final path = Path();
     double maxVal = hourlyData.reduce((a, b) => a > b ? a : b);
-    if (maxVal == 0) maxVal = 1;
+    if (maxVal == 0) {
+      maxVal = 1;
+    }
 
-    final double bottomMargin = 20;
+    const double bottomMargin = 20;
     final double chartHeight = size.height - bottomMargin;
     final widthPerPoint = size.width / (hourlyData.length - 1);
     path.moveTo(0, chartHeight);
@@ -2231,8 +2233,9 @@ class SmoothWavePainter extends CustomPainter {
     for (int i = 0; i < hourlyData.length; i++) {
       final x = i * widthPerPoint;
       final y = chartHeight - (hourlyData[i] / maxVal) * (chartHeight - 10);
-      if (i == 0) linePath.moveTo(x, y);
-      else {
+      if (i == 0) {
+        linePath.moveTo(x, y);
+      } else {
         final prevX = (i - 1) * widthPerPoint;
         final prevY = chartHeight - (hourlyData[i - 1] / maxVal) * (chartHeight - 10);
         linePath.cubicTo(prevX + widthPerPoint / 2, prevY, x - widthPerPoint / 2, y, x, y);
