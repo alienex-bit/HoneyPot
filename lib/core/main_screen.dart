@@ -1086,7 +1086,63 @@ class _StatsScreenState extends State<StatsScreen> {
       body: FutureBuilder<Map<String, dynamic>>(
         future: _statsFuture,
         builder: (context, snapshot) {
-          final data = snapshot.data!;
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: CircularProgressIndicator(color: HoneyTheme.amberPrimary),
+            );
+          }
+
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.error_outline_rounded,
+                      color: HoneyTheme.amberPrimary,
+                      size: 36,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Could not load Honey Insights',
+                      style: GoogleFonts.outfit(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      '${snapshot.error}',
+                      style: GoogleFonts.outfit(
+                        fontSize: 12,
+                        color: Colors.grey,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 20),
+                    ElevatedButton(
+                      onPressed: _loadStats,
+                      child: const Text('Try Again'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+
+          final data = snapshot.data;
+          if (data == null) {
+            return Center(
+              child: Text(
+                'No insight data yet',
+                style: GoogleFonts.outfit(color: Colors.grey),
+              ),
+            );
+          }
+
           final total = data['total'] as int? ?? 0;
           final topApps = data['topApps'] as List<Map<String, dynamic>>? ?? [];
           final distribution = data['distribution'] as Map<int, int>? ?? {};
