@@ -4,9 +4,10 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
+import android.util.Log
 import java.util.Calendar
 
-class HoneyDatabaseHelper(context: Context) : SQLiteOpenHelper(context, "honeypot.db", null, 6) {
+class HoneyDatabaseHelper(context: Context) : SQLiteOpenHelper(context, "honeypot.db", null, 8) {
 
     override fun onCreate(db: SQLiteDatabase) {
         // Table creation if not exists
@@ -21,12 +22,20 @@ class HoneyDatabaseHelper(context: Context) : SQLiteOpenHelper(context, "honeypo
                 icon_byte_array BLOB,
                 priority INTEGER DEFAULT 2,
                 notification_id INTEGER,
-                notification_tag TEXT
+                notification_tag TEXT,
+                deleted INTEGER DEFAULT 0
             )
         """)
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_notifications_package ON notifications(package_name)")
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_notifications_timestamp ON notifications(timestamp)")
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_notifications_id_tag ON notifications(notification_id, notification_tag)")
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS app_cache (
+                package_name TEXT PRIMARY KEY,
+                description TEXT,
+                timestamp INTEGER
+            )
+        """)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -53,6 +62,27 @@ class HoneyDatabaseHelper(context: Context) : SQLiteOpenHelper(context, "honeypo
                 db.execSQL("CREATE INDEX IF NOT EXISTS idx_notifications_id_tag ON notifications(notification_id, notification_tag)")
             } catch (e: Exception) {}
         }
+        if (oldVersion < 7) {
+            try {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS app_cache (
+                        package_name TEXT PRIMARY KEY,
+                        description TEXT,
+                        timestamp INTEGER
+                    )
+                """)
+            } catch (e: Exception) {}
+        }
+        if (oldVersion < 8) {
+            try {
+                db.execSQL("ALTER TABLE notifications ADD COLUMN deleted INTEGER DEFAULT 0")
+            } catch (e: Exception) {}
+        }
+    }
+
+    override fun onDowngrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        // Keep existing user data if an older helper is accidentally shipped.
+        Log.w("HoneyPot", "Database downgrade requested from $oldVersion to $newVersion. Keeping existing schema.")
     }
 
     fun saveNotification(packageName: String, appName: String, title: String, content: String, timestamp: Long, iconBytes: ByteArray?, priority: Int, notificationId: Int, notificationTag: String?) {
@@ -67,6 +97,7 @@ class HoneyDatabaseHelper(context: Context) : SQLiteOpenHelper(context, "honeypo
                WHERE package_name = ? 
                  AND notification_id = ? 
                  AND COALESCE(notification_tag, '') = COALESCE(?, '')
+                 AND (deleted IS NULL OR deleted = 0)
                LIMIT 1""",
             arrayOf(packageName, notificationId.toString(), notificationTag ?: "")
         )
@@ -82,6 +113,7 @@ class HoneyDatabaseHelper(context: Context) : SQLiteOpenHelper(context, "honeypo
                    WHERE package_name = ?
                      AND TRIM(COALESCE(title, '')) = TRIM(COALESCE(?, ''))
                      AND timestamp >= ?
+                     AND (deleted IS NULL OR deleted = 0)
                    ORDER BY timestamp DESC
                    LIMIT 1""",
                 arrayOf(packageName, title, (timestamp - windowMs).toString())
@@ -125,15 +157,58 @@ class HoneyDatabaseHelper(context: Context) : SQLiteOpenHelper(context, "honeypo
         calendar.set(Calendar.SECOND, 0)
         calendar.set(Calendar.MILLISECOND, 0)
         val startOfToday = calendar.timeInMillis
-        
-        val cursor = db.rawQuery("SELECT COUNT(*) FROM notifications WHERE timestamp >= ?", arrayOf(startOfToday.toString()))
+
+        val cursor = db.rawQuery(
+            "SELECT COUNT(*) FROM notifications WHERE timestamp >= ? AND (deleted IS NULL OR deleted = 0)",
+            arrayOf(startOfToday.toString())
+        )
         var count = 0
-        if (cursor.moveToFirst()) {
-            count = cursor.getInt(0)
-        }
+        if (cursor.moveToFirst()) count = cursor.getInt(0)
         cursor.close()
-        // We don't close the DB because typically SQLiteOpenHelper handles it, 
-        // but for read-only we might want to keep it or just return.
         return count
     }
+
+    fun getTodayStats(): GradeStats {
+        val db = readableDatabase
+        val calendar = Calendar.getInstance()
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
+        val startOfToday = calendar.timeInMillis
+
+        var crystallized = 0
+        var amber = 0
+        var golden = 0
+        var royal = 0
+
+        val cursor = db.rawQuery(
+            """SELECT priority, COUNT(*) FROM notifications
+               WHERE timestamp >= ?
+                 AND (deleted IS NULL OR deleted = 0)
+               GROUP BY priority""",
+            arrayOf(startOfToday.toString())
+        )
+        while (cursor.moveToNext()) {
+            val grade = cursor.getInt(0)
+            val count = cursor.getInt(1)
+            when (grade) {
+                0 -> crystallized = count
+                1 -> amber = count
+                2 -> golden = count
+                3 -> royal = count
+            }
+        }
+        cursor.close()
+        return GradeStats(crystallized, amber, golden, royal)
+    }
+}
+
+data class GradeStats(
+    val crystallized: Int,
+    val amber: Int,
+    val golden: Int,
+    val royal: Int
+) {
+    val total: Int get() = crystallized + amber + golden + royal
 }

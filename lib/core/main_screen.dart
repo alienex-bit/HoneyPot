@@ -662,52 +662,55 @@ class _HistoryPlaceholderState extends State<HistoryPlaceholder> {
         await NotificationService.refreshStats();
         _refreshHistory();
       },
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: HoneyTheme.glassBlur, sigmaY: HoneyTheme.glassBlur),
-          child: GestureDetector(
-            onTap: () => _showDetails(item),
-            onLongPress: () {
-              _setFilter(packageName, item['app_name']);
-              HapticFeedback.heavyImpact();
-            },
-            child: Container(
-              height: 102,
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: HoneyTheme.glassBackground,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: gradeColor.withValues(alpha: 0.7), width: priority == 3 ? 2.0 : 1.2),
-              ),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () async {
-                      HapticFeedback.mediumImpact();
-                      try {
-                        await LaunchApp.openApp(
-                          androidPackageName: packageName,
-                          openStore: true, // Only if not found locally
-                        );
-                      } catch (e) {
-                        debugPrint('Direct jump failed: $e');
-                        // Second attempt with broader url launcher as fallback
-                        final url = Uri.parse('package:$packageName');
-                        if (await canLaunchUrl(url)) {
-                          await launchUrl(url);
-                        }
-                      }
-                    },
-                    child: Container(
-                      width: 54, height: 54,
-                      decoration: BoxDecoration(color: gradeColor.withValues(alpha: 0.1), shape: BoxShape.circle),
-                      child: item['icon_byte_array'] != null
-                          ? Padding(padding: const EdgeInsets.all(8.0), child: Image.memory(item['icon_byte_array'], fit: BoxFit.contain))
-                          : Icon(Icons.notifications_rounded, size: 20, color: gradeColor),
-                    ),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: HoneyTheme.glassBlur, sigmaY: HoneyTheme.glassBlur),
+              child: GestureDetector(
+                onTap: () => _showDetails(item),
+                onLongPress: () {
+                  _setFilter(packageName, item['app_name']);
+                  HapticFeedback.heavyImpact();
+                },
+                child: Container(
+                  height: 102,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: HoneyTheme.glassBackground,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: gradeColor.withValues(alpha: 0.7), width: priority == 3 ? 2.0 : 1.2),
                   ),
+                  child: Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () async {
+                          HapticFeedback.mediumImpact();
+                          try {
+                            await LaunchApp.openApp(
+                              androidPackageName: packageName,
+                              openStore: true, // Only if not found locally
+                            );
+                          } catch (e) {
+                            debugPrint('Direct jump failed: $e');
+                            // Second attempt with broader url launcher as fallback
+                            final url = Uri.parse('package:$packageName');
+                            if (await canLaunchUrl(url)) {
+                              await launchUrl(url);
+                            }
+                          }
+                        },
+                        child: Container(
+                          width: 54, height: 54,
+                          decoration: BoxDecoration(color: gradeColor.withValues(alpha: 0.1), shape: BoxShape.circle),
+                          child: item['icon_byte_array'] != null
+                              ? Padding(padding: const EdgeInsets.all(8.0), child: Image.memory(item['icon_byte_array'], fit: BoxFit.contain))
+                              : Icon(Icons.notifications_rounded, size: 20, color: gradeColor),
+                        ),
+                      ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -751,6 +754,22 @@ class _HistoryPlaceholderState extends State<HistoryPlaceholder> {
             ),
           ),
         ),
+      ),
+          // Grade badge pinned to top-left corner of card
+          Positioned(
+            top: 6,
+            left: 6,
+            child: Container(
+              width: 22, height: 22,
+              decoration: BoxDecoration(
+                color: gradeColor,
+                shape: BoxShape.circle,
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 4)],
+              ),
+              child: Icon(grade['icon'] as IconData, size: 13, color: Colors.black),
+            ),
+          ),
+        ],
       ),
     ).animate().fadeIn();
   }

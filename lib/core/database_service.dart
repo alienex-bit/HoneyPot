@@ -21,7 +21,7 @@ class DatabaseService {
     String path = join(await getDatabasesPath(), 'honeypot.db');
     return await openDatabase(
       path,
-      version: 7,
+      version: 8,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -39,7 +39,8 @@ class DatabaseService {
         icon_byte_array BLOB,
         priority INTEGER DEFAULT 2,
         notification_id INTEGER,
-        notification_tag TEXT
+        notification_tag TEXT,
+        deleted INTEGER DEFAULT 0
       )
     ''');
     await db.execute('''
@@ -83,6 +84,13 @@ class DatabaseService {
         debugPrint("Migration Error (v7 - app_cache): $e");
       }
     }
+    if (oldVersion < 8) {
+      try {
+        await db.execute('ALTER TABLE notifications ADD COLUMN deleted INTEGER DEFAULT 0');
+      } catch (e) {
+        debugPrint("Migration Error (v8 - deleted): $e");
+      }
+    }
   }
 
   Future<int> insertNotification(Map<String, dynamic> data) async {
@@ -114,7 +122,8 @@ class DatabaseService {
       whereArgs.add(priority);
     }
 
-    String whereClause = whereClauses.isNotEmpty ? 'WHERE ${whereClauses.join(' AND ')}' : '';
+    whereClauses.add('(deleted IS NULL OR deleted = 0)');
+    String whereClause = 'WHERE ${whereClauses.join(' AND ')}';
     String orderBy = sortByPriority ? 'priority DESC, timestamp DESC' : 'timestamp DESC';
     
     return await db.rawQuery('''
@@ -141,21 +150,20 @@ class DatabaseService {
 
   Future<void> deleteNotification(int id) async {
     Database db = await database;
-    await db.delete('notifications', where: 'id = ?', whereArgs: [id]);
+    await db.execute('UPDATE notifications SET deleted = 1 WHERE id = ?', [id]);
   }
 
   Future<void> deleteGroup(String packageName, String title) async {
     Database db = await database;
-    await db.delete(
-      'notifications',
-      where: 'package_name = ? AND TRIM(COALESCE(title, \'\')) = TRIM(COALESCE(?, \'\'))',
-      whereArgs: [packageName, title],
+    await db.execute(
+      "UPDATE notifications SET deleted = 1 WHERE package_name = ? AND TRIM(COALESCE(title, '')) = TRIM(COALESCE(?, ''))",
+      [packageName, title],
     );
   }
 
   Future<void> clearAll() async {
     Database db = await database;
-    await db.delete('notifications');
+    await db.execute('UPDATE notifications SET deleted = 1');
   }
 
   Future<List<Map<String, dynamic>>> getStats() async {

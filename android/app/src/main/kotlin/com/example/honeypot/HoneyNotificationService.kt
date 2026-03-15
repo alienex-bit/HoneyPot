@@ -8,6 +8,7 @@ import android.content.pm.ServiceInfo
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import java.io.ByteArrayOutputStream
@@ -17,7 +18,11 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.os.Build
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.style.StyleSpan
 import androidx.core.app.NotificationCompat
+import java.util.Locale
 
 class HoneyNotificationService : NotificationListenerService() {
     private lateinit var dbHelper: HoneyDatabaseHelper
@@ -41,9 +46,9 @@ class HoneyNotificationService : NotificationListenerService() {
     }
 
     private fun updateForegroundNotification() {
-        val count = try { dbHelper.getTodayCount() } catch (e: Exception) { 0 }
-        val notification = createNotification(count)
-        
+        val stats = try { dbHelper.getTodayStats() } catch (e: Exception) { GradeStats(0, 0, 0, 0) }
+        val notification = createNotification(stats)
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         } else {
@@ -66,37 +71,72 @@ class HoneyNotificationService : NotificationListenerService() {
         }
     }
 
-    private fun createNotification(count: Int): Notification {
-        val notificationIntent = Intent(this, MainActivity::class.java)
+    private fun createNotification(stats: GradeStats): Notification {
         val pendingIntent = PendingIntent.getActivity(
-            this,
-            0, notificationIntent,
+            this, 0,
+            Intent(this, MainActivity::class.java),
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
         )
 
+        val total = stats.total
+
         val title = when {
-            count == 0 -> "Jar Waiting for Pollen 🐝"
-            count < 10 -> "First Drops of Honey! 🍯"
-            count < 50 -> " Hive is Buzzing! 🐝"
-            else -> "Honey Jar is Overflowing! 🍯"
+            total == 0  -> "🐝 Jar is Waiting for Pollen"
+            total < 10  -> "🍯 First Drops of Honey!"
+            total < 50  -> "🐝 Hive is Buzzing!"
+            else        -> "🍯 Honey Jar is Overflowing!"
         }
 
-        val text = if (count == 0) {
+        val collapsedText = if (total == 0) {
             "Ready to capture honey in the background..."
         } else {
-            "You've captured $count drops of honey today!"
+            "You've captured $total drops of honey today!"
         }
 
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
-            .setContentText(text)
-            .setSmallIcon(android.R.drawable.ic_menu_compass) // We should replace this with a bee icon later
+            .setContentText(collapsedText)
+            .setSmallIcon(android.R.drawable.ic_menu_compass)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
-            .setOnlyAlertOnce(true) // Don't buzz on every count update
+            .setOnlyAlertOnce(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            .build()
+
+        if (total > 0) {
+            val style = NotificationCompat.InboxStyle()
+                // Keep this short so it stays on one line in expanded view.
+                .addLine("Total today: $total drops harvested")
+                .addLine(formatStatLine("👑", "Royal Jelly", stats.royal))
+                .addLine(formatStatLine("✨", "Golden Honey", stats.golden))
+                .addLine(formatStatLine("🍂", "Amber Honey", stats.amber))
+                .addLine(formatStatLine("🪨", "Crystallized", stats.crystallized))
+            builder.setStyle(style)
+        } else {
+            val style = NotificationCompat.BigTextStyle()
+                .bigText("HoneyPot is listening in the background — ready to capture your first drop of honey! 🍯")
+            builder.setStyle(style)
+        }
+
+        return builder.build()
+    }
+
+    private fun formatStatLine(icon: String, label: String, count: Int): CharSequence {
+        val builder = SpannableStringBuilder()
+        builder.append(icon).append(" ")
+
+        val numberStart = builder.length
+        builder.append(String.format(Locale.US, "%3d", count))
+        val numberEnd = builder.length
+        builder.setSpan(
+            StyleSpan(Typeface.BOLD),
+            numberStart,
+            numberEnd,
+            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+
+        builder.append("  ").append(label)
+        return builder
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
